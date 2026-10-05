@@ -68,6 +68,9 @@ their identity to the rest of the API.
   email address — the API returns `400` and no token.
 - Given a well-formed request whose credentials do not match an existing user,
   the API returns `401` and no token.
+- The email is matched ignoring letter case and leading or trailing spaces:
+  `Alice@Example.com ` signs in the user `alice@example.com`. The password is
+  matched exactly.
 
 **Business rules**
 
@@ -135,15 +138,26 @@ The system ships with data an Operator can load before using the API.
 
 **Business rules**
 
-1. The initial data contains at least two users, each with their own inventory
-   items, and at least one user whose items are different from the others'.
-2. Each inventory item carries at least five meaningful business fields beyond
-   identifiers — for example name, code, category, quantity and unit price.
+1. The initial data contains at least two users who each own inventory items,
+   and one user who owns no items.
+2. Each inventory item has exactly these business fields:
+
+   | Field | Meaning | Rule |
+   |---|---|---|
+   | `name` | Item name | Non-empty text |
+   | `sku` | Stock keeping unit code | Non-empty text, unique among the items of the same user |
+   | `category` | Item category | Non-empty text |
+   | `location` | Where the item is stored | Non-empty text |
+   | `quantity` | Units in stock | Integer, zero or more |
+   | `unitPrice` | Price of one unit | Number, zero or more, two decimal places, in one currency documented in the README |
+
 3. Each inventory item belongs to exactly one user.
-4. The credentials of the initial users are documented for reviewers, and the
-   stored passwords are not readable from the stored data.
-5. Loading the initial data again does not corrupt existing data; the result is
-   a usable data set.
+4. The credentials of every initial user, including the one without items, are
+   documented for reviewers, and the stored passwords are not readable from the
+   stored data.
+5. Loading the initial data again leaves the initial users and their items
+   exactly in the documented state, without duplicates, and does not affect
+   existing report requests.
 
 ### 3.5 FR05 — Read own inventory
 
@@ -165,8 +179,9 @@ The system ships with data an Operator can load before using the API.
    item. Such input cannot add another user's items to the response, remove the
    caller's own items, or cause an error that reveals whether another user's
    items exist.
-3. Each returned item exposes its business fields and its own identifier. The
-   response does not expose data belonging to other users.
+3. Each returned item exposes exactly its own identifier and the six business
+   fields of §3.4. It does not expose its owner or any data belonging to other
+   users.
 4. This specification does not define the order of the items, and clients must
    not rely on it.
 
@@ -192,18 +207,29 @@ immediately and the report is produced afterwards, outside the request.
 **Business rules**
 
 1. The report contains only items owned by the user who made the request.
-2. The report has one header row naming the columns, followed by one row per
-   item. The columns are the business fields of the item. The report does not
-   contain internal identifiers or the owner of the items.
+2. The report has one header row followed by one row per item. The columns are,
+   in this order: `Name`, `SKU`, `Category`, `Location`, `Quantity`,
+   `Unit Price`, `Total Value`. `Total Value` is `quantity × unitPrice`, with
+   two decimal places. The report does not contain internal identifiers or the
+   owner of the items.
 3. The inventory used is the inventory as it stands when the report is
    produced, not when it was requested.
-4. The email is addressed to the requesting user's own email address, states
-   that it carries an inventory report, and carries the spreadsheet as an
-   attachment.
+4. The email:
+   - is addressed to the requesting user's own email address;
+   - has the subject `Your inventory report`;
+   - has a body that greets the user by name and states when the report was
+     produced (UTC) and how many items it contains;
+   - carries the spreadsheet as an attachment named
+     `inventory-report-<YYYYMMDD-HHmmss>Z.xlsx`, where the timestamp is the
+     UTC moment the report was produced.
 5. Each call creates a new, independent request. A user may have several
    requests outstanding at the same time, and an earlier request is never
    replaced or cancelled by a later one.
-6. A successful report is emailed at most once per request.
+6. Without interruptions, a successful report is emailed exactly once per
+   request. If the system is interrupted after the email is sent but before
+   the request is recorded as finished, the same report may be emailed again
+   (see §8). An accepted report is never lost silently: it is either emailed or
+   the request ends `failed`.
 7. The produced file is temporary: it is not kept indefinitely, and no endpoint
    of the API serves it or discloses its location.
 
@@ -229,13 +255,14 @@ immediately and the report is produced afterwards, outside the request.
    - `failed` — finished unsuccessfully and will not be retried.
 2. The `404` response is identical in all three failure cases, so a caller
    cannot tell an unknown identifier from one belonging to another user.
-3. A reason is present when the request finished successfully without data to
-   report, and when it failed. The reason is readable by a user and does not
-   expose internal details of the system.
+3. A reason is present only when the request finished successfully without
+   data to report, and when it failed. While an attempt is being retried, the
+   request reads as `pending` or `processing` with no reason. The reason is
+   readable by a user and does not expose internal details of the system.
 4. The response does not expose how many times the system tried to produce the
    report.
-5. The state a caller reads never moves backwards from a finished state: once
-   `done` or `failed`, it stays that way.
+5. A request may move between `pending` and `processing` while it is being
+   retried. Once `done` or `failed`, it never changes again.
 
 ### 3.8 FR08 — Background production of reports
 
@@ -249,15 +276,20 @@ has been accepted. It says nothing about the mechanism that provides them.
 2. Every accepted request eventually reaches `done` or `failed`. No request
    stays in `pending` or `processing` forever.
 3. A request interrupted while being produced — for example because the system
-   restarted — becomes eligible to be produced again and still reaches a
-   finished state.
+   restarted — becomes eligible to be produced again within a limited,
+   configurable period (two minutes by default) and still reaches a finished
+   state.
 4. A failure that may be temporary, including a failure to send the email, is
    retried. The number of attempts is limited and configurable. When the limit
    is reached, the request becomes `failed` with a reason.
-5. A report request is produced once at a time, and a user receives at most one
-   successful email per request. This holds however the system is scaled.
-6. A failure of one request does not stop other requests from being produced.
-7. A failure to produce a report is recorded on the server with enough
+5. A failure that cannot be fixed by retrying is not retried: if the user who
+   made the request no longer exists when the report is produced, the request
+   becomes `failed` with a reason.
+6. A report request is produced by one producer at a time, however the system
+   is scaled. The email guarantee of §3.6 rule 6 holds with any number of
+   producers.
+7. A failure of one request does not stop other requests from being produced.
+8. A failure to produce a report is recorded on the server with enough
    information to investigate it, including the identifier of the request.
 
 ### 3.9 FR10 — Documentation for users of the project
@@ -304,8 +336,9 @@ Each requirement below is stated so that it can be checked.
 
 1. The values that change between environments — at least where the data is
    stored, the secret used to issue tokens, the port the API listens on, the
-   token lifetime and the maximum number of report attempts — are supplied by
-   the environment.
+   token lifetime, the maximum number of report attempts and the period after
+   which an interrupted report request becomes eligible again — are supplied
+   by the environment.
 2. The system refuses to start when a required configuration value is missing,
    and says which one.
 
@@ -315,15 +348,18 @@ Each requirement below is stated so that it can be checked.
    and its response time does not grow with the size of the caller's
    inventory.
 2. Under normal conditions, an accepted report request leaves `pending` within
-   a few seconds. The time to finish grows with the size of the inventory.
+   5 seconds. With the default configuration and no failures, a request for
+   any user of the initial data reaches `done` within 30 seconds. For larger
+   inventories the time to finish grows with the size of the inventory.
 3. The API keeps answering requests while reports are being produced.
 
 ### 4.5 Data lifetime
 
-1. A produced report file is removed after it is delivered, or within a bounded
-   period if it is not.
-2. Report requests remain readable through §3.7 for as long as the system is
-   running.
+1. A produced report file is removed as soon as its email is sent, and when its
+   request becomes `failed`. A file left behind for any other reason — for
+   example an interruption — is removed within one hour.
+2. Report requests are kept across restarts of the system and remain readable
+   through §3.7 indefinitely (see §8).
 
 ## 5. Constraints
 
@@ -340,12 +376,16 @@ Imposed by the challenge, not chosen by this specification.
    - `GET /inventory` → `200`, `401`
    - `POST /reports/inventory` → `202`, `401`
    - `GET /reports/:jobId` → `200`, `401`, `404`
-   Any unexpected failure on any endpoint → `500`.
+
+   Any unexpected failure on any endpoint → `500`. A request whose body is not
+   valid JSON or is too large → `400`. Any other path or method → `404`. All of
+   these use the error shape of §4.2.
 4. Protected endpoints take the token as a bearer token in the `Authorization`
    header.
-5. The report is a spreadsheet in `.xlsx` format.
-6. Email is not actually delivered; sending is simulated.
-7. No external queue or message broker is used.
+5. A successful sign-in returns the body `{ "token": "<token>" }`.
+6. The report is a spreadsheet in `.xlsx` format.
+7. Email is not actually delivered; sending is simulated.
+8. No external queue or message broker is used.
 
 ## 6. Out of scope
 
@@ -361,14 +401,18 @@ Imposed by the challenge, not chosen by this specification.
 - Pagination, filtering, searching and sorting of the inventory, and any
   guarantee about the order of items.
 - Rate limiting and quotas on report requests.
+- Retention and removal of old report requests.
 
 ## 7. Acceptance criteria
 
 ### 7.1 FR01 — Sign in
 
 - **Given** a user from the initial data, **when** a client posts that user's
-  email and password to `/auth/login`, **then** the response is `200` and
-  contains a token.
+  email and password to `/auth/login`, **then** the response is `200` and its
+  body is `{ "token": "<token>" }`.
+- **Given** a user from the initial data, **when** a client posts that email
+  in different letter case and with surrounding spaces, plus the correct
+  password, **then** the response is `200` with a token.
 - **Given** a user from the initial data, **when** a client posts that email
   with a wrong password, **then** the response is `401` and contains no token.
 - **Given** an email that belongs to no user, **when** a client posts it with
@@ -408,10 +452,14 @@ Imposed by the challenge, not chosen by this specification.
 ### 7.4 FR04, FR09 — Initial data
 
 - **Given** a system that holds no users and no inventory, **when** the Operator
-  performs the documented load action, **then** at least two users exist, each
-  owning inventory items, and each item has at least five business fields.
+  performs the documented load action, **then** at least two users exist who
+  each own inventory items, one user exists who owns none, and each item has
+  exactly the six business fields of §3.4.
 - **Given** the loaded data, **when** a client signs in with each documented
   credential pair, **then** each sign-in succeeds.
+- **Given** the loaded data, **when** the Operator performs the load action a
+  second time, **then** the initial users and their items match the documented
+  state, with no duplicates, and existing report requests are unchanged.
 - **Given** the loaded data, **when** the stored user data is inspected outside
   the API, **then** no readable password is present. This is the one criterion
   that cannot be checked at the API boundary.
@@ -420,7 +468,8 @@ Imposed by the challenge, not chosen by this specification.
 
 - **Given** users A and B each owning items, **when** a client with A's token
   calls `/inventory`, **then** the response is `200`, contains every item of A
-  and no item of B.
+  and no item of B, and each item has exactly its identifier and the six
+  business fields.
 - **Given** A's token, **when** the client calls `/inventory` adding B's user
   identifier or an item identifier of B's in the query string, the body, a path
   segment or a header, **then** the response is identical to the plain call and
@@ -434,10 +483,14 @@ Imposed by the challenge, not chosen by this specification.
   **then** the response is `202` within 200 ms and contains a request
   identifier.
 - **Given** that accepted request, **when** the system has finished producing
-  the report, **then** a spreadsheet exists containing a header row and one row
-  per item of that user, with no item of another user and no internal
-  identifier, and a simulated email addressed to that user records the
-  spreadsheet as an attachment.
+  the report, **then** a simulated email is recorded addressed to that user,
+  with the subject `Your inventory report` and an attachment named
+  `inventory-report-<YYYYMMDD-HHmmss>Z.xlsx`; the spreadsheet has the header
+  row of §3.6 rule 2 and one row per item of that user, with no item of
+  another user and no internal identifier, and each `Total Value` equals
+  `Quantity × Unit Price`.
+- **Given** a report whose email was sent, **when** the report folder is
+  inspected afterwards, **then** the file is no longer there.
 - **Given** a user who owns no items, **when** that user posts to
   `/reports/inventory`, **then** the response is `202`, the request later reads
   as `done` with a reason stating there was no inventory data, and no email is
@@ -461,6 +514,8 @@ Imposed by the challenge, not chosen by this specification.
   with the same body as the other-user case.
 - **Given** an accepted request, **when** it is looked up repeatedly, **then**
   its state reaches `done` or `failed` and does not change afterwards.
+- **Given** an accepted request, **when** the system is restarted and the
+  request is looked up, **then** it is still found.
 - **Given** a request that failed, **when** it is looked up, **then** the
   response carries a readable reason and no internal detail, and no attempt
   count.
@@ -470,16 +525,22 @@ Imposed by the challenge, not chosen by this specification.
 - **Given** a report request accepted while the caller's inventory is large,
   **when** other endpoints are called immediately afterwards, **then** they
   answer normally.
+- **Given** a request for a user of the initial data and the default
+  configuration, **when** it is looked up, **then** it leaves `pending` within
+  5 seconds and reads `done` within 30 seconds.
 - **Given** a request being produced, **when** the producing process is killed
-  and the system is started again, **then** the request still reaches `done` or
-  `failed`, and does not stay in `processing`.
+  and the system is started again, **then** the request becomes eligible again
+  within the configured period, still reaches `done` or `failed`, and does not
+  stay in `processing`.
+- **Given** a request whose user no longer exists when it is produced, **when**
+  it is looked up, **then** it reads `failed` with a reason, without retries.
 - **Given** email sending that fails temporarily, **when** the request is
   looked up over time, **then** it is retried and eventually reaches `done`, or
   reaches `failed` with a reason after the configured maximum number of
   attempts.
-- **Given** several instances producing reports at the same time, **when** one
-  request is accepted, **then** exactly one successful email is recorded for
-  it.
+- **Given** several instances producing reports at the same time and no
+  interruptions, **when** one request is accepted, **then** exactly one
+  successful email is recorded for it.
 - **Given** one request that fails, **when** other requests are looked up,
   **then** they are still produced and finish.
 
@@ -497,28 +558,24 @@ Imposed by the challenge, not chosen by this specification.
   is recorded on the server.
 - **Given** any error response of the API, **when** its body is inspected,
   **then** it has an error code and a human-readable message and nothing else.
+- **Given** a request to a path or method this specification does not list,
+  **when** it is sent, **then** the response is `404` with the error shape.
+- **Given** a request whose body is not valid JSON or is too large, **when** it
+  is sent to any endpoint, **then** the response is `400` with the error shape.
 - **Given** a missing required configuration value, **when** the system is
   started, **then** it refuses to start and names the missing value.
 
-## 8. Open questions
+## 8. Known limits
 
-- `[NEEDS CLARIFICATION]` **Report filename.** The spreadsheet's name is not
-  defined. It may be visible to the user as the attachment name. Suggestion:
-  a name that identifies it as an inventory report and the moment it was
-  produced.
-- `[NEEDS CLARIFICATION]` **Email subject and body text.** §3.6 requires the
-  email to state that it carries an inventory report, but the exact wording is
-  not defined.
-- `[NEEDS CLARIFICATION]` **Bound for report file removal.** §4.5 requires the
-  file not to be kept indefinitely, but the period for a file that was not
-  delivered is not defined.
-- `[NEEDS CLARIFICATION]` **Lifetime of report requests.** §4.5 keeps requests
-  readable while the system runs. Whether they survive a restart, and for how
-  long they remain readable, is not defined.
-- `[NEEDS CLARIFICATION]` **Business fields of an inventory item.** §3.4
-  requires at least five meaningful fields and gives examples; the exact set of
-  fields, and therefore the exact columns of the report and the exact fields of
-  the inventory response, is not fixed.
-- `[NEEDS CLARIFICATION]` **Upper bound for "finishes".** §3.8 guarantees every
-  request finishes, and §4.4 says the time to finish grows with inventory size,
-  but no maximum is stated, so the guarantee cannot be checked by a timeout.
+Accepted consequences of this specification. The README must state them.
+
+1. **Duplicate email after an interruption.** If the system is interrupted
+   after a report email is sent but before the request is recorded as
+   finished, the same report may be emailed again (§3.6 rule 6). A report is
+   never lost silently in exchange.
+2. **Report requests are kept indefinitely.** No retention period is defined;
+   their storage grows with use (§4.5, §6).
+3. **Inventory order is not defined** and the whole inventory is returned in
+   one response, without pagination (§3.5, §6).
+4. **One API instance.** Running several API instances behind a load balancer
+   is described but not delivered (§6).
