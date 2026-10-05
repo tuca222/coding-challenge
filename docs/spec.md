@@ -149,7 +149,7 @@ The system ships with data an Operator can load before using the API.
    | `category` | Item category | Non-empty text |
    | `location` | Where the item is stored | Non-empty text |
    | `quantity` | Units in stock | Integer, zero or more |
-   | `unitPrice` | Price of one unit | Number, zero or more, two decimal places, in one currency documented in the README |
+   | `unitPrice` | Price of one unit | Number, zero or more, two decimal places, in US dollars (USD) |
 
 3. Each inventory item belongs to exactly one user.
 4. The credentials of every initial user, including the one without items, are
@@ -209,9 +209,10 @@ immediately and the report is produced afterwards, outside the request.
 1. The report contains only items owned by the user who made the request.
 2. The report has one header row followed by one row per item. The columns are,
    in this order: `Name`, `SKU`, `Category`, `Location`, `Quantity`,
-   `Unit Price`, `Total Value`. `Total Value` is `quantity × unitPrice`, with
-   two decimal places. The report does not contain internal identifiers or the
-   owner of the items.
+   `Unit Price`, `Total Value`. `Total Value` is `quantity × unitPrice`.
+   `Unit Price` and `Total Value` are amounts in US dollars with two decimal
+   places. The report does not contain internal identifiers or the owner of
+   the items.
 3. The inventory used is the inventory as it stands when the report is
    produced, not when it was requested.
 4. The email:
