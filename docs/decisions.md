@@ -658,8 +658,7 @@ arrives, then commits the workbook.
 
 **Context.** The spec requires prices in US dollars with two decimal places
 and a `Total Value = quantity × unitPrice` column with two decimal places
-(spec §3.4, §3.6). JavaScript numbers are binary floating point, so values
-like `0.1 + 0.2` are not exact.
+(spec §3.4, §3.6).
 
 **Decision.** Store the unit price as an integer number of US cents. All
 calculations are done in cents, with integer arithmetic. Only at the edge
