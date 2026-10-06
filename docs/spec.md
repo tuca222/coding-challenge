@@ -194,8 +194,8 @@ immediately and the report is produced afterwards, outside the request.
 
 **Behavior**
 
-- Given an authenticated request, the API returns `202` with an identifier for
-  the request (`jobId`), the initial state of the request, and a confirmation
+- Given an authenticated request, the API returns `202` with a success flag, an
+  identifier for the request (`jobId`), the initial state of the request, and a confirmation
   message. The response does not wait for the report to be produced.
 - After the response, and independently of it, the system reads the inventory
   of the user who made the request, produces a spreadsheet of those items, and
