@@ -36,8 +36,14 @@ Editing rules:
 
 ## How to work with me
 
+- **Keep it simple.** This is a small backend. Do what the spec requires,
+  in the most direct way, and stop there. No extra layers, options,
+  validations, configuration or "future-proofing" the spec does not ask
+  for. When unsure between two solutions, pick the simpler one.
 - Prefer simple, explicit code over clever abstractions or patterns
   I did not ask for.
+- Be objective in replies and documents: short explanations, plain words,
+  and only the decisions I really need to make.
 - Talk to me in **Portuguese (pt-BR)**. Write code, identifiers, comments,
   commit messages, README and API error messages in **English**.
 - For any non-trivial task: **plan first, wait for my approval, then code**.
@@ -53,14 +59,17 @@ Editing rules:
 
 ## Stack
 
-- Node.js (LTS) + TypeScript (`strict: true`)
+- Node.js 24 LTS (`node:24-slim`) + TypeScript (`strict: true`), ES modules
+  (`"type": "module"`, NodeNext; relative imports end in `.js`)
 - Express 5
 - bcrypt (native package, async API) for password hashing
-- MongoDB (official `mongo` image)
+- MongoDB 8 (`mongo:8`) with Mongoose
+- zod for request and config validation
+- exceljs (streaming writer) for the `.xlsx` report
+- Vitest + supertest + mongodb-memory-server for tests
 - Docker + Docker Compose
-- Still open (see decisions.md backlog): Mongoose vs native driver,
-  validation library, test runner, ESM vs CommonJS,
-  xlsx library.
+
+Rationale for each choice: `docs/decisions.md`. Details: `docs/plan.md`.
 
 ## Architecture (summary)
 
@@ -77,10 +86,12 @@ through the `reportJobs` collection:
 
 1. `POST /reports/inventory` inserts a job with `status: "pending"` and
    returns `202` with a `jobId` immediately. `GET /reports/:jobId` returns
-   the job status (owner-filtered; another user's job returns `404`).
+   the job status (owner-filtered; another user's job, an unknown id and a
+   malformed id all return the same `404`).
 2. The worker polls and claims jobs **atomically**, generates the `.xlsx`
-   file in `/tmp/reports`, calls the email mock, and marks the job
-   `done` or `failed`.
+   file in `/tmp/reports`, calls the email mock, deletes the file, and marks
+   the job `done`, back to `pending` (retry) or `failed`. While processing it
+   renews its lease (heartbeat).
 
 The email provider is an external service. In this challenge it is a mock
 behind an `EmailSender` interface (`ConsoleEmailSender` logs to stdout).
@@ -99,19 +110,27 @@ src/
   services/              # business logic (auth, inventory, reports, email)
   middleware/            # auth, error handler, not-found
   errors/                # AppError and subclasses
-  workers/reportWorker.ts  # worker entrypoint (poll loop)
-scripts/seed.ts
+  dto/                   # response mappers (no document is sent directly)
+  seed/                  # seed data and runSeed()
+  utils/                 # money (cents → dollars), logger
+  types/                 # Express request augmentation (req.auth)
+  workers/               # reportWorker.ts (entrypoint), queue, job processing
+scripts/seed.ts          # seed entrypoint
 tests/
 docs/
 ```
 
+File-by-file structure: `docs/plan.md` §3.
+
 ## Commands (target; keep this section updated as scripts are created)
 
 ```sh
+cp .env.example .env                            # first time only
 docker compose up --build                       # run everything
 docker compose exec api npm run seed            # seed users + inventory
 docker compose up --scale worker=3              # scale the worker
 docker compose down -v                          # stop and delete volumes
+docker compose -f compose.yaml -f compose.dev.yaml up  # also publish Mongo port (dev only)
 npm run dev | build | start | start:worker
 npm run typecheck | lint | test
 ```
@@ -119,6 +138,9 @@ npm run typecheck | lint | test
 The production image contains only compiled code (`dist/`), so every script
 that runs inside a container (including the seed) must be compiled and run
 with `node`, not with a TS runner.
+
+Compiled entrypoints: `dist/src/server.js` (api),
+`dist/src/workers/reportWorker.js` (worker), `dist/scripts/seed.js` (seed).
 
 ## Non-negotiable rules
 
@@ -144,7 +166,9 @@ IMPORTANT: these come from the challenge's security requirements. Never break th
   traces or internal details. Unknown errors become `500` with a generic
   message and are logged on the server.
 - **Job claim must be atomic:** claim with a single `findOneAndUpdate`.
-  Never use `findOne` followed by `update`.
+  Never use `findOne` followed by `update`. Every write that renews or
+  finishes a job filters by `_id`, `status: "processing"` and the job's
+  `lockToken`.
 - **No CPU-heavy work in the API process.** Report generation runs only in
   the worker.
 - **Inside containers, use service names (`mongo`), never `localhost`**,
@@ -163,11 +187,15 @@ IMPORTANT: these come from the challenge's security requirements. Never break th
 - Validate request input at the boundary (controller/middleware) and return
   `400` with a clear message.
 - Logs: short and useful. The worker always logs the `jobId`.
+- Money: store and compute in integer US cents; convert to dollars (two
+  decimals) only in DTOs and in the report.
+- Responses are built by mappers in `src/dto/`; never send a Mongoose
+  document.
 
 ## Testing priorities
 
-Test these first, through HTTP (supertest-style), against a real or in-memory
-MongoDB:
+Test these first, with Vitest + supertest against `createApp()` and
+mongodb-memory-server:
 
 1. Login success and failure.
 2. Protected endpoints reject missing or invalid tokens.
@@ -180,6 +208,6 @@ MongoDB:
 ## Definition of done (per task)
 
 - `npm run typecheck`, `lint` and `test` pass.
-- `docker compose up --build` works from a clean clone.
+- `docker compose up --build` works from a clean clone, following the README.
 - README updated if endpoints, commands or env vars changed.
 - No secrets, no `node_modules`, no generated reports committed.
