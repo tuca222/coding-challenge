@@ -131,7 +131,7 @@ docker compose exec api npm run seed            # seed users + inventory
 docker compose up --scale worker=3              # scale the worker
 docker compose down -v                          # stop and delete volumes
 docker compose -f compose.yaml -f compose.dev.yaml up  # also publish Mongo port (dev only)
-npm run dev | build | start | start:worker
+npm run build | start | start:worker | seed
 npm run typecheck | lint | test
 ```
 
