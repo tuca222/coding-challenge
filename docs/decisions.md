@@ -682,12 +682,15 @@ with two decimal places, for example `1999` cents → `19.99`.
 
 **Status:** Accepted
 
+**Amended 2026-10-07:** spec §4.5.1 no longer sets a one-hour deadline for
+leftover files; the limit below is now spec §8.5.
+
 **In short:** The worker deletes the report file after each attempt, and on
 startup it deletes every file left in its reports folder.
 
 **Context.** Spec §4.5.1 requires the file to be removed after the email is
 sent and when the job fails, and any file left behind (for example after a
-crash) to be removed within one hour.
+crash) to be removed later, when the system recovers.
 
 **Decision**
 - After every attempt, successful or not, the worker deletes the file it
@@ -708,10 +711,10 @@ crash) to be removed within one hour.
 - ✅ Simple: no timers, no age calculation.
 - ✅ Covers the main case: a crash followed by a container restart
   (`restart: unless-stopped`).
-- ❌ **Known limit:** a file can stay longer than one hour only if deleting
-  it fails while the worker keeps running, or if the worker stays stopped for
-  more than one hour after a crash. In both cases it is removed the next time
-  the worker starts. The README states this.
+- ❌ **Known limit (spec §8.5):** a leftover file has no deadline. It stays
+  if deleting it fails while the worker keeps running, or while the worker
+  stays stopped after a crash. In both cases it is removed the next time the
+  worker starts. The README states this.
 
 **In production.** Files go to S3 with a lifecycle rule that expires them.
 
