@@ -124,6 +124,7 @@ src/
       ConsoleEmailSender.ts   # mock: logs the email
   middleware/
     authenticate.ts
+    jsonBody.ts               # express.json({ limit: "10kb" }), used per route
     errorHandler.ts
     notFound.ts
   errors/
@@ -171,11 +172,16 @@ ESM (D-020): `"type": "module"`, and relative imports end in `.js`
 ## 4. Configuration (spec §4.3, D-018)
 
 `src/config/env.ts` is the **only** module that reads `process.env`. It
-exports `env`, built by `loadEnv(process.env)` with a small zod schema:
-required values must be present, numbers must be numbers, and the rest get
-their defaults. If anything is missing or invalid, it prints the variable
-names (for example `Missing or invalid config: MONGO_URI, JWT_SECRET`) and
-exits with code `1` (spec §4.3.2).
+exports `loadEnv(source)` and `env`.
+
+- `loadEnv(source)` validates `source` with a small zod schema: required
+  values must be present, numbers must be numbers, and the rest get their
+  defaults. If anything is missing or invalid, it **throws** an error whose
+  message names the variables (for example
+  `Missing or invalid config: MONGO_URI, JWT_SECRET`). It never exits, so
+  tests can call it.
+- `env` is built at module load by `loadEnv(process.env)`. If it throws, the
+  module prints the message and exits with code `1` (spec §4.3.2).
 
 | Variable | Required | Default | Used by |
 |---|---|---|---|
@@ -289,12 +295,21 @@ edge (D-022).
 ### 6.1 App pipeline (`createApp()`)
 
 1. `app.disable("x-powered-by")`
-2. `express.json({ limit: "10kb" })`
-3. Routers (`routes/index.ts`)
-4. `notFound` — any unmatched path or method
-5. `errorHandler` — last
+2. Routers (`routes/index.ts`)
+3. `notFound` — any unmatched path or method
+4. `errorHandler` — last
 
-Protected routers use `authenticate` before their handlers.
+Middleware is declared **per route**, in this order (spec §3.2.3):
+
+| Route | Chain |
+|---|---|
+| `POST /auth/login` | `jsonBody` → handler |
+| Protected routes | `authenticate` → `jsonBody` → handler |
+
+`jsonBody` is `express.json({ limit: "10kb" })`. Because `authenticate` runs
+first, an unauthenticated request gets `401` even with a broken body; an
+authenticated one with a broken body gets `400`. An unknown path never runs
+`authenticate`, so it always gets `404`.
 
 ### 6.2 Errors (spec §4.2, §5.3)
 
@@ -332,7 +347,7 @@ Request body (zod, unknown fields ignored):
 | Field | Rule |
 |---|---|
 | `email` | string → trim → lowercase → valid email |
-| `password` | string, min length 1, used exactly as sent |
+| `password` | string, min length 1 (empty → `400`, spec §3.1), used exactly as sent |
 
 Responses:
 - `200` `{ "token": "<jwt>" }`
@@ -503,11 +518,24 @@ options: { sort: { createdAt: 1 }, new: true }
 Returns the claimed job (with its new `lockToken` and `attempts`) or `null`.
 
 **`failExhaustedJobs(maxAttempts)`** — one `updateMany`:
-`{ status: "processing", lockedUntil: { $lt: now }, attempts: { $gte: maxAttempts } }`
+
+```ts
+filter: {
+  attempts: { $gte: maxAttempts },
+  $or: [
+    { status: "pending" },
+    { status: "processing", lockedUntil: { $lt: now } },
+  ],
+}
+```
+
 → `status: "failed"`, exhausted reason, `lockToken: null`,
 `lockedUntil: null`, `statusChangedAt: now`. Runs before every claim, so a
 job whose last attempt crashed reaches `failed` within one lease plus one
-poll interval (spec §3.8.2).
+poll interval (spec §3.8.2). The `pending` branch covers jobs left with no
+attempts after `REPORT_MAX_ATTEMPTS` is lowered; without it they would never
+be claimed and would stay `pending` forever. The filter is the exact
+complement of the claim filter for these two states.
 
 **`renewLease(jobId, lockToken, leaseMs)`** — `updateOne` filtered by
 `{ _id, status: "processing", lockToken }`, sets `lockedUntil`. Returns
@@ -575,7 +603,8 @@ disconnectDb → exit 0
    the email body).
 3. `filePath = <reportsDir>/<jobId>-<attempt>.xlsx` (unique per attempt).
 4. `itemCount = await writeInventoryReport(userId, filePath)` (§8.5).
-5. If `itemCount === 0` → remove the file, return (no email, spec §3.6).
+5. If `itemCount === 0` → return `{ itemCount: 0 }` without sending an email
+   (spec §3.6). The file is removed by the `finally` below.
 6. If `isLeaseLost()` → throw `LeaseLostError` (never send an email for a job
    this worker no longer owns).
 7. `await emailSender.send(...)` (§8.6).
@@ -617,6 +646,7 @@ directory.
 
 ```ts
 interface EmailMessage {
+  jobId: string;
   to: string;
   subject: string;
   text: string;
@@ -629,6 +659,8 @@ interface EmailSender {
 
 The worker builds:
 
+- `jobId`: the job id (for the log; a real provider would use it as the
+  deduplication key, §14)
 - `to`: the owner's email
 - `subject`: `Your inventory report`
 - `text`:
@@ -638,8 +670,9 @@ The worker builds:
 - `attachment.path`: the temporary file
 
 `ConsoleEmailSender.send` checks that the attachment exists (`fs.stat`) and
-logs one line: `email sent` with `to`, `subject`, `attachment` name and size.
-This log line is the "recorded simulated email" of spec §7.6.
+logs one line: `email sent` with `jobId`, `to`, `subject`, `attachment` name
+and size. This log line is the "recorded simulated email" of spec §7.6, and
+the only `email sent` line per email (the worker does not log another one).
 
 Production (D-011): an SES/SMTP implementation of the same interface.
 
@@ -666,7 +699,7 @@ Production (D-011): an SES/SMTP implementation of the same interface.
 (`error` to stderr): `{"level":"info","msg":"job claimed","jobId":"…","attempt":1}`.
 
 Worker events, all with `jobId`: `job claimed`, `report written` (rows, ms),
-`email sent`, `job done`, `job retry scheduled` (attempt, error message),
+`email sent` (logged by `ConsoleEmailSender`, §8.6), `job done`, `job retry scheduled` (attempt, error message),
 `job failed` (attempt, error message and stack), `lease lost`. Plus
 `exhausted jobs failed` (count) when `failExhaustedJobs` changes anything.
 
@@ -703,10 +736,7 @@ including `0` and prices with cents (for example `1999` → `19.99`).
 The seed is not transactional (single-node MongoDB). If it stops halfway,
 running it again restores the documented state.
 
-Run:
-- In Compose: `docker compose exec api npm run seed` → `node dist/scripts/seed.js`.
-- Locally: `npm run build && npm run seed` with `MONGO_URI` pointing to a
-  reachable MongoDB.
+Run: `docker compose exec api npm run seed` → `node dist/scripts/seed.js`.
 
 ## 10. Docker and Compose (D-005, D-006, D-025)
 
@@ -715,6 +745,8 @@ Run:
 ```dockerfile
 FROM node:24-slim AS build
 WORKDIR /app
+# Tests do not run in the image: skip the mongod download of mongodb-memory-server
+ENV MONGOMS_DISABLE_POSTINSTALL=1
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY tsconfig.json tsconfig.build.json ./
@@ -806,7 +838,8 @@ the system refuses to start, as spec §4.3.2 requires.
 
 ### 11.1 TypeScript
 
-`tsconfig.json` (typecheck, includes `src`, `scripts`, `tests`):
+`tsconfig.json` (typecheck, includes `src`, `scripts`, `tests` and
+`vitest.config.ts`, so ESLint's type-aware rules can read every TS file):
 
 - `strict: true`
 - `target: "ES2023"`, `module: "NodeNext"`, `moduleResolution: "NodeNext"`
@@ -823,12 +856,14 @@ ESLint flat config (`eslint.config.js`) with `@eslint/js` recommended and
 floating promises). One extra rule, from the code conventions in CLAUDE.md:
 `@typescript-eslint/explicit-module-boundary-types: error`.
 
+Plain `.js` files (only `eslint.config.js`) are not in the TypeScript
+project, so they use `tseslint.configs.disableTypeChecked`. Ignored: `dist`,
+`coverage`.
+
 ### 11.3 npm scripts
 
 | Script | Command |
 |---|---|
-| `dev` | `tsx watch src/server.ts` |
-| `dev:worker` | `tsx watch src/workers/reportWorker.ts` |
 | `build` | `tsc -p tsconfig.build.json` |
 | `start` | `node dist/src/server.js` |
 | `start:worker` | `node dist/src/workers/reportWorker.js` |
@@ -838,6 +873,10 @@ floating promises). One extra rule, from the code conventions in CLAUDE.md:
 | `test` | `vitest run` |
 
 `package.json`: `"type": "module"`, `"engines": { "node": ">=24" }`.
+
+There is no local dev server script: the app runs through Docker Compose
+(`docker compose up --build`). Only the tests run directly on the host, and
+they need no `.env` (§12.1).
 
 ## 12. Testing (D-019, spec §7)
 
@@ -860,13 +899,13 @@ floating promises). One extra rule, from the code conventions in CLAUDE.md:
 | File | Covers |
 |---|---|
 | `auth.login.test.ts` | §7.1: success; email case/spaces; wrong password; unknown email returns the same body; missing/wrong-type/invalid email → 400; no hash in response |
-| `auth.middleware.test.ts` | §7.2: no header; non-bearer; bad signature; `alg: none`; expired token; deleted user — same 401 body on every protected route |
+| `auth.middleware.test.ts` | §7.2: no header; non-bearer; bad signature; `alg: none`; expired token; deleted user — same 401 body on every protected route; no token + invalid JSON body → 401 |
 | `users.me.test.ts` | §7.3: exactly four fields; another user's id in query/body/header is ignored |
 | `inventory.test.ts` | §7.5: A sees only A's items with exact fields; B's user id or item id in query/body/header → same response; `/inventory/<B item id>` → 404; empty user → `[]` |
 | `reports.api.test.ts` | §7.6/§7.7: `202` with the four fields and a `pending` job stored; three calls → three ids; owner lookup `200` without `attempts`; other user / unknown / malformed id → identical `404` |
 | `worker.queue.test.ts` | atomic claim: many concurrent `claimNextJob` calls on N jobs → each job claimed once; expired lease is reclaimed; exhausted job → `failed` by `failExhaustedJobs`; stale `lockToken` cannot finish a job; `done`/`failed` never change |
 | `worker.process.test.ts` | §7.6/§7.8: success → one email with subject, attachment name pattern, spreadsheet rows read back with exceljs (headers, values, `Total Value`, no ids), file deleted; empty inventory → `done` + reason, no email; missing user → `failed` after one attempt; email fails once → `pending` then `done`; email always fails → `failed` after `max` attempts; lease lost → no email |
-| `errors.test.ts` | §7.10: invalid JSON → 400; body over limit → 400; unknown path/method → 404; forced service failure (`vi.mock`) → generic 500 |
+| `errors.test.ts` | §7.10: invalid JSON → 400 (login, and protected route with a valid token); body over limit → 400; unknown path/method → 404; forced service failure (`vi.mock`) → generic 500 |
 | `config.test.ts` | §7.10: `loadEnv({})` fails naming `MONGO_URI` and `JWT_SECRET` |
 | `seed.test.ts` | §7.4: after `runSeed()` the documented users and items exist with hashed passwords; second run → same state, same user ids, no duplicates, existing jobs unchanged |
 
@@ -903,7 +942,6 @@ Approval required before installing (CLAUDE.md).
 |---|---|
 | `typescript` | Compiler (D-005) |
 | `@types/node`, `@types/express`, `@types/bcrypt`, `@types/jsonwebtoken`, `@types/supertest` | Type definitions |
-| `tsx` | Run TS directly in `npm run dev` with watch |
 | `vitest` | Test runner (D-019) |
 | `supertest` | HTTP calls against `app` without a port (D-019) |
 | `mongodb-memory-server` | Real `mongod` for tests (D-019) |
@@ -921,7 +959,7 @@ From spec §8 and the ADRs; all go to the README.
 | Jobs are kept forever | spec §8.2 | TTL index or archival |
 | Inventory not paginated, order undefined | spec §8.3 | Cursor pagination by `_id` on the owner index |
 | One API instance in Compose | spec §8.4, D-009 | ALB + several API tasks |
-| Temporary file can outlive one hour if deletion fails or the worker stays stopped | D-023 | S3 + lifecycle rule |
+| Leftover temporary file has no deadline: it stays until the next worker start if deletion fails or the worker stays stopped | spec §8.5, D-023 | S3 + lifecycle rule |
 | Reports stored per worker container | D-006 | S3 |
 | No login rate limiting | decisions backlog | Rate limit per IP and email |
 | One user lookup per authenticated request | D-008 | Acceptable; cache only if needed |
