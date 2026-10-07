@@ -64,8 +64,8 @@ their identity to the rest of the API.
 - Given a request with a well-formed body and credentials that match an
   existing user, the API returns `200` with an access token.
 - Given a request whose body is not well formed — a missing `email`, a missing
-  `password`, a value of the wrong type, or an `email` that is not a valid
-  email address — the API returns `400` and no token.
+  or empty `password`, a value of the wrong type, or an `email` that is not a
+  valid email address — the API returns `400` and no token.
 - Given a well-formed request whose credentials do not match an existing user,
   the API returns `401` and no token.
 - The email is matched ignoring letter case and leading or trailing spaces:
@@ -108,6 +108,8 @@ Every endpoint in §3.3, §3.5, §3.6 and §3.7 is protected.
    identifier present in the query string, body, path or other headers is
    ignored for authorization purposes and never widens what the caller can
    reach.
+3. Authentication is checked before the request body. An unauthenticated
+   request receives `401` even if its body is not valid JSON or is too large.
 
 ### 3.3 FR03 — Read own profile
 
@@ -358,7 +360,8 @@ Each requirement below is stated so that it can be checked.
 
 1. A produced report file is removed as soon as its email is sent, and when its
    request becomes `failed`. A file left behind for any other reason — for
-   example an interruption — is removed within one hour.
+   example an interruption — is removed later, when the system recovers from
+   it. Usually this takes minutes, but no maximum delay is guaranteed (see §8).
 2. Report requests are kept across restarts of the system and remain readable
    through §3.7 indefinitely (see §8).
 
@@ -379,8 +382,9 @@ Imposed by the challenge, not chosen by this specification.
    - `GET /reports/:jobId` → `200`, `401`, `404`
 
    Any unexpected failure on any endpoint → `500`. A request whose body is not
-   valid JSON or is too large → `400`. Any other path or method → `404`. All of
-   these use the error shape of §4.2.
+   valid JSON or is too large → `400` (on protected endpoints, only after
+   authentication succeeds; see §3.2). Any other path or method → `404`. All
+   of these use the error shape of §4.2.
 4. Protected endpoints take the token as a bearer token in the `Authorization`
    header.
 5. A successful sign-in returns the body `{ "token": "<token>" }`.
@@ -420,10 +424,10 @@ Imposed by the challenge, not chosen by this specification.
   any password, **then** the response is `401` and is byte-for-byte the same as
   the wrong-password response, except for values that do not identify the
   failure cause.
-- **Given** a request body without `password`, or without `email`, or with a
-  value of the wrong type, or with an `email` that is not a valid email
-  address, **when** it is posted to `/auth/login`, **then** the response is
-  `400`.
+- **Given** a request body without `password`, or with an empty `password`,
+  or without `email`, or with a value of the wrong type, or with an `email`
+  that is not a valid email address, **when** it is posted to `/auth/login`,
+  **then** the response is `400`.
 - **Given** any sign-in response, **when** its body is inspected, **then** it
   contains no password and no stored form of a password.
 
@@ -440,6 +444,9 @@ Imposed by the challenge, not chosen by this specification.
   same in all three cases.
 - **Given** a token issued with the configured lifetime, **when** that lifetime
   has passed and the token is used, **then** the response is `401`.
+- **Given** no valid token and a body that is not valid JSON, **when** a
+  client calls any protected endpoint, **then** the response is `401`, not
+  `400`.
 
 ### 7.3 FR03 — Read own profile
 
@@ -562,7 +569,8 @@ Imposed by the challenge, not chosen by this specification.
 - **Given** a request to a path or method this specification does not list,
   **when** it is sent, **then** the response is `404` with the error shape.
 - **Given** a request whose body is not valid JSON or is too large, **when** it
-  is sent to any endpoint, **then** the response is `400` with the error shape.
+  is sent to sign-in, or to a protected endpoint with a valid token, **then**
+  the response is `400` with the error shape.
 - **Given** a missing required configuration value, **when** the system is
   started, **then** it refuses to start and names the missing value.
 
@@ -580,3 +588,7 @@ Accepted consequences of this specification. The README must state them.
    one response, without pagination (§3.5, §6).
 4. **One API instance.** Running several API instances behind a load balancer
    is described but not delivered (§6).
+5. **Leftover report files have no deadline.** A file left behind by an
+   interruption, or by a failed removal, is removed later, but it may stay for
+   a long time, for example while the system stays stopped (§4.5). It is never
+   served by the API (§3.6 rule 7).
