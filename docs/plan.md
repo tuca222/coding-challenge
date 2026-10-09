@@ -580,7 +580,11 @@ disconnectDb → exit 0
 `runJob(job, deps)`:
 
 1. Start the **heartbeat**: `setInterval(leaseMs / 3)` calling
-   `renewLease`. If it returns `false`, mark the lease as lost.
+   `renewLease`. If it returns `false`, mark the lease as lost. If it
+   throws (for example MongoDB is unavailable), log the error with `jobId`
+   and keep the heartbeat running; an error does not mark the lease as lost.
+   If the outage lasts longer than the lease, the lease expires and the lock
+   token protects the job (§8.2).
 2. `await processReportJob(job, deps)` → returns `{ itemCount }`.
 3. Stop the heartbeat (in `finally`).
 4. Decide the outcome:
@@ -947,7 +951,7 @@ From spec §8 and the ADRs.
 |---|---|---|
 | Duplicate email possible after a crash between send and `done` | spec §8.1, D-003 | Idempotent provider call keyed by `jobId` |
 | A frozen (not crashed) worker longer than the lease can lose its job | D-003 | Same as above; monitoring |
-| Retries have no backoff | D-003 | `availableAt` with exponential backoff |
+| Retries happen right away, with no delay: a short outage can use all attempts at once | D-003 | `availableAt` with exponential backoff |
 | Jobs are kept forever | spec §8.2 | TTL index or archival |
 | Inventory not paginated, order undefined | spec §8.3 | Cursor pagination by `_id` on the owner index |
 | One API instance in Compose | spec §8.4, D-009 | ALB + several API tasks |
