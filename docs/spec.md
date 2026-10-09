@@ -3,7 +3,8 @@
 > Source of truth for **what** the system must do. Derived only from
 > `docs/context.md`. It describes observable behavior at the API boundary,
 > business rules and acceptance criteria. It does not describe how the system
-> is built; that belongs to `docs/plan.md`.
+> is built; that belongs to `docs/plan.md`. A bare `§x` refers to this
+> specification.
 
 ## 1. Overview
 
