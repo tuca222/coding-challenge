@@ -378,7 +378,9 @@ holds only compiled code and production dependencies. Details:
   sent twice. A report is never lost silently in exchange.
 - **A frozen worker** (alive but stuck longer than the lease) can lose its job
   to another worker, which can also lead to a duplicate email.
-- **Retries have no backoff**; they happen on the next poll.
+- **Retries happen right away, with no delay.** A failure that lasts a few
+  seconds (for example the email provider is briefly down) can use all
+  attempts at once, and the job ends `failed`.
 - **Report requests are kept forever**; there is no retention period.
 - **Inventory is not paginated** and its order is not defined.
 - **One API instance** in Compose; several instances behind a load balancer
