@@ -303,6 +303,25 @@ documented credentials; call every endpoint of this specification with example
 requests; understand how reports are produced and what happens when they fail;
 and read the assumptions and known limits of the solution.
 
+The README also explains, in short, how the solution handles each review
+topic of `docs/context.md` §10:
+
+- sign-in and password storage;
+- isolation of each user's data;
+- how the data is stored and looked up;
+- how the project is organized, and why;
+- report production outside the request;
+- concurrent producers and failures, including an interruption during
+  production;
+- cleanup of temporary report files;
+- retries when email sending fails;
+- running with several instances in production;
+- inventories with millions of items;
+- secure deployment.
+
+Where a topic is covered in detail by another project document, the README
+may summarize it and link to that document.
+
 ## 4. Non-functional requirements
 
 Each requirement below is stated so that it can be checked.
@@ -558,6 +577,8 @@ Imposed by the challenge, not chosen by this specification.
   reviewer follows it, **then** they start the system, load the initial data,
   sign in, call every endpoint, observe a report being produced and emailed,
   and find the stated assumptions and limits.
+- **Given** the README, **when** a reviewer looks for each review topic of
+  §3.9, **then** each one is explained or linked.
 
 ### 7.10 Cross-cutting
 
