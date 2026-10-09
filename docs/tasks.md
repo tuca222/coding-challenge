@@ -1,9 +1,13 @@
 # Tasks
 
 > Execution order for `docs/plan.md`. Each task is small, has its own tests
-> and becomes a few small commits (§1 rule 1). Tasks only reference the spec (`spec §x`) and the
-> plan (`plan §x`); they add no requirement and no design. If a task cannot be
+> and becomes a few small commits (§1 rule 1). Tasks only reference the spec and
+> the plan; they add no requirement and no design. If a task cannot be
 > done as the plan says, stop and ask (CLAUDE.md).
+>
+> **References.** `spec §x` and the **Spec** field point to `docs/spec.md`;
+> `plan §x` and the **Plan** field point to `docs/plan.md`; `D-0xx` is an ADR
+> in `docs/decisions.md`; a bare `§x` refers to this document.
 
 ## 1. Rules
 
@@ -646,7 +650,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
 
 #### T35 — README: verify and finalize
 
-- **Spec:** §3.9, §7.9, §8 · **CLAUDE.md:** README
+- **Spec:** §3.9, §7.9, §8 · **CLAUDE.md:** section "README"
 - **Depends on:** T34
 - **Files:** `README.md`
 - **Work:** the README draft already exists. Check it against the running
@@ -658,9 +662,9 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
     each documented credential, call every endpoint with the `curl`
     examples, see a report emailed;
   - every example response matches a real response (field names and shape);
-  - every review topic of `context.md` §10 is explained or linked
+  - every review topic of `docs/context.md` §10 is explained or linked
     (spec §3.9);
-  - follows the README rules of CLAUDE.md (sections, summarize and link);
+  - follows the "README" section of CLAUDE.md (sections, summarize and link);
   - every link to `docs/` works.
 - **Commit:** `docs(readme): finalize README`
 
