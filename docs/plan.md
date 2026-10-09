@@ -18,7 +18,6 @@
 | §3.6 Request a report | §6.6, §8 |
 | §3.7 Check a report request | §6.7, §8.1 |
 | §3.8 Background production | §8 |
-| §3.9 Documentation | §10.5 (README content) |
 | §4.1 Security | §5, §6.2, §7, §10.3 |
 | §4.2 Errors | §6.2 |
 | §4.3 Configuration | §4 |
@@ -827,35 +826,6 @@ before failing, in addition to `depends_on: service_healthy`.
 - `.dockerignore`: `node_modules`, `dist`, `.env`, `.git`, `tests`,
   `coverage`, `docs`.
 
-### 10.5 README (spec §3.9)
-
-Sections: quick start (`cp .env.example .env`, `docker compose up --build`,
-seed), credentials, endpoints with `curl` examples, how reports work (states,
-retries, lease, cleanup), configuration table (§4), tests, design notes,
-assumptions (currency: US dollars), known limits (§14), production notes,
-links to the project documents.
-
-The first step of the quick start is `cp .env.example .env`. Without `.env`
-the system refuses to start, as spec §4.3.2 requires.
-
-**Design notes** (spec §3.9 review topics). Each topic gets a few lines in
-the README and a link to its source; the details stay in the plan and the
-ADRs, not repeated in the README:
-
-| Review topic | README section | Source to link |
-|---|---|---|
-| Sign-in and password storage | Design notes | §7.1, §7.2, D-008, D-014 |
-| Isolation of each user's data | Design notes | §7.4, D-007 |
-| Data storage and lookup | Design notes (collections + indexes table) | §5, D-016, D-017, D-022 |
-| Project organization | Design notes | §2.2, §3, D-013 |
-| Report production outside the request | How reports work | §8, D-001, D-002 |
-| Concurrency and failures | How reports work | §8.1–§8.4, D-003, D-004 |
-| Temporary file cleanup | How reports work | §8.7, D-023 |
-| Retries on email failure | How reports work | §8.4, D-003, D-011 |
-| Several instances in production | Design notes, Production notes | D-004, D-009, §14 |
-| Millions of items | Design notes | §5.2, §8.5, D-017, D-021 |
-| Secure deployment | Design notes | §10, D-006 |
-
 ## 11. Tooling
 
 ### 11.1 TypeScript
@@ -933,7 +903,7 @@ they need no `.env` (§12.1).
 
 ### 12.3 Manual checks with Compose
 
-Documented in the README and run before calling the work done:
+Run before calling the work done:
 
 1. `docker compose up --build`, seed, login, call every endpoint.
 2. Request a report; `docker compose logs worker` shows the job and the
@@ -971,7 +941,7 @@ Approval required before installing (CLAUDE.md).
 
 ## 14. Known limits and production notes
 
-From spec §8 and the ADRs; all go to the README.
+From spec §8 and the ADRs.
 
 | Limit | Where | Production direction |
 |---|---|---|
