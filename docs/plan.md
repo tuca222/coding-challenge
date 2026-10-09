@@ -2,13 +2,14 @@
 
 > Source of truth for **how** the system is built. Every section implements
 > requirements of `docs/spec.md` (cited as `spec §x`) and follows the decisions
-> of `docs/decisions.md` (cited as `D-0xx`). This document explains what is
+> of `docs/decisions.md` (cited as `D-0xx`). A bare `§x` refers to this plan.
+> This document explains what is
 > built and how it works; the reasons behind each choice are in the ADRs.
 > It adds no requirement of its own.
 
 ## 1. Purpose and traceability
 
-| Spec | Plan |
+| `docs/spec.md` | This plan |
 |---|---|
 | §3.1 Sign in | §6.3, §7.1, §7.2 |
 | §3.2 Authenticated requests | §6.2, §7.3 |
@@ -264,7 +265,7 @@ Indexes:
 the API must report when the **state** last changed (spec §3.7).
 
 Internal error details are **not** stored in the job; they go to the worker
-log with the `jobId` (spec §3.8.8, §3.7.3).
+log with the `jobId` (spec §3.8.8, spec §3.7.3).
 
 ### 5.4 Index creation
 
@@ -272,7 +273,7 @@ log with the `jobId` (spec §3.8.8, §3.7.3).
 three models. The API, the worker and the seed call it after connecting, so
 indexes exist before the first request or job.
 
-Report jobs are never deleted (spec §4.5.2, §8.2).
+Report jobs are never deleted (spec §4.5.2, spec §8.2).
 
 ### 5.5 DTOs
 
@@ -733,7 +734,7 @@ Data:
 | Bob Smith | `bob@example.com` | `Bob#2026` | 8 |
 | Carol White | `carol@example.com` | `Carol#2026` | 0 |
 
-The passwords are test credentials, documented in the README (spec §3.4.4).
+The passwords are test credentials, documented in `README.md` (spec §3.4.4).
 Only their bcrypt hashes are stored.
 
 At least one SKU appears for both Alice and Bob, to show that SKUs are unique
@@ -894,16 +895,16 @@ they need no `.env` (§12.1).
 
 | File | Covers |
 |---|---|
-| `auth.login.test.ts` | §7.1: success; email case/spaces; wrong password; unknown email returns the same body; missing field/empty password/wrong type/invalid email → 400; no hash in response |
-| `auth.middleware.test.ts` | §7.2: no header; non-bearer; bad signature; `alg: none`; expired token; deleted user — same 401 body on every protected route; no token + invalid JSON body → 401 |
-| `users.me.test.ts` | §7.3: exactly four fields; another user's id in query/body/header is ignored |
-| `inventory.test.ts` | §7.5: A sees only A's items with exact fields; B's user id or item id in query/body/header → same response; `/inventory/<B item id>` → 404; empty user → `[]` |
-| `reports.api.test.ts` | §7.6/§7.7: `202` with the four fields and a `pending` job stored; three calls → three ids; owner lookup `200` without `attempts`; other user / unknown / malformed id → identical `404` |
+| `auth.login.test.ts` | spec §7.1: success; email case/spaces; wrong password; unknown email returns the same body; missing field/empty password/wrong type/invalid email → 400; no hash in response |
+| `auth.middleware.test.ts` | spec §7.2: no header; non-bearer; bad signature; `alg: none`; expired token; deleted user — same 401 body on every protected route; no token + invalid JSON body → 401 |
+| `users.me.test.ts` | spec §7.3: exactly four fields; another user's id in query/body/header is ignored |
+| `inventory.test.ts` | spec §7.5: A sees only A's items with exact fields; B's user id or item id in query/body/header → same response; `/inventory/<B item id>` → 404; empty user → `[]` |
+| `reports.api.test.ts` | spec §7.6/spec §7.7: `202` with the four fields and a `pending` job stored; three calls → three ids; owner lookup `200` without `attempts`; other user / unknown / malformed id → identical `404` |
 | `worker.queue.test.ts` | atomic claim: many concurrent `claimNextJob` calls on N jobs → each job claimed once; expired lease is reclaimed; exhausted job → `failed` by `failExhaustedJobs`; stale `lockToken` cannot finish a job; `done`/`failed` never change |
-| `worker.process.test.ts` | §7.6/§7.8: success → one email with subject, attachment name pattern, spreadsheet rows read back with exceljs (headers, values, `Total Value`, no ids), file deleted; empty inventory → `done` + reason, no email; missing user → `failed` after one attempt; email fails once → `pending` then `done`; email always fails → `failed` after `max` attempts; lease lost → no email |
-| `errors.test.ts` | §7.10: invalid JSON → 400 (login, and protected route with a valid token); body over limit → 400; unknown path/method → 404; forced service failure (`vi.mock`) → generic 500 |
-| `config.test.ts` | §7.10: `loadEnv({})` fails naming `MONGO_URI` and `JWT_SECRET` |
-| `seed.test.ts` | §7.4: after `runSeed()` the documented users and items exist with hashed passwords; second run → same state, same user ids, no duplicates, existing jobs unchanged |
+| `worker.process.test.ts` | spec §7.6/spec §7.8: success → one email with subject, attachment name pattern, spreadsheet rows read back with exceljs (headers, values, `Total Value`, no ids), file deleted; empty inventory → `done` + reason, no email; missing user → `failed` after one attempt; email fails once → `pending` then `done`; email always fails → `failed` after `max` attempts; lease lost → no email |
+| `errors.test.ts` | spec §7.10: invalid JSON → 400 (login, and protected route with a valid token); body over limit → 400; unknown path/method → 404; forced service failure (`vi.mock`) → generic 500 |
+| `config.test.ts` | spec §7.10: `loadEnv({})` fails naming `MONGO_URI` and `JWT_SECRET` |
+| `seed.test.ts` | spec §7.4: after `runSeed()` the documented users and items exist with hashed passwords; second run → same state, same user ids, no duplicates, existing jobs unchanged |
 
 ### 12.3 Manual checks with Compose
 
