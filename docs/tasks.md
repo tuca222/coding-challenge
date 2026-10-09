@@ -639,7 +639,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
 
 #### T35 — README: verify and finalize
 
-- **Spec:** §3.9, §7.9, §8 · **Plan:** §10.5, §14
+- **Spec:** §3.9, §7.9, §8 · **CLAUDE.md:** README
 - **Depends on:** T34
 - **Files:** `README.md`
 - **Work:** the README draft already exists. Check it against the running
@@ -651,8 +651,9 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
     each documented credential, call every endpoint with the `curl`
     examples, see a report emailed;
   - every example response matches a real response (field names and shape);
-  - every review topic of spec §3.9 is explained or linked (plan §10.5
-    table);
+  - every review topic of `context.md` §10 is explained or linked
+    (spec §3.9);
+  - follows the README rules of CLAUDE.md (sections, summarize and link);
   - every link to `docs/` works.
 - **Commit:** `docs(readme): finalize README`
 
