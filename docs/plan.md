@@ -58,7 +58,7 @@
 ### 2.2 Layers in the API (D-013)
 
 ```
-route → [authenticate] → controller → service → model (Mongoose)
+route → [authenticate] → jsonBody → controller → service → model (Mongoose)
                               │
                               └─ errors thrown as AppError subclasses
                                  → errorHandler middleware → JSON response
@@ -351,8 +351,9 @@ Request body (zod, unknown fields ignored):
 
 Responses:
 - `200` `{ "token": "<jwt>" }`
-- `400` `VALIDATION_ERROR` (missing field, wrong type, invalid email, missing
-  or non-JSON body)
+- `400` `VALIDATION_ERROR` (missing field, empty password, wrong type,
+  invalid email, missing body or a `Content-Type` other than JSON)
+- `400` `INVALID_JSON` / `PAYLOAD_TOO_LARGE` (§6.2)
 - `401` `INVALID_CREDENTIALS` — identical body for unknown email and wrong
   password
 
@@ -549,7 +550,7 @@ complement of the claim filter for these two states.
 
 Every outcome also sets `lockToken: null`, `lockedUntil: null`,
 `statusChangedAt: now`. If nothing matched, the worker logs
-`lease lost, result discarded` and does nothing else.
+`lease lost` and does nothing else.
 
 ### 8.3 Worker loop (`workers/reportWorker.ts`)
 
@@ -723,11 +724,14 @@ Never logged: passwords, password hashes, tokens, request bodies.
 
 Data:
 
-| User | Email | Items |
-|---|---|---|
-| Alice Johnson | `alice@example.com` | 10 |
-| Bob Smith | `bob@example.com` | 8 |
-| Carol White | `carol@example.com` | 0 |
+| User | Email | Password | Items |
+|---|---|---|---|
+| Alice Johnson | `alice@example.com` | `Alice#2026` | 10 |
+| Bob Smith | `bob@example.com` | `Bob#2026` | 8 |
+| Carol White | `carol@example.com` | `Carol#2026` | 0 |
+
+The passwords are test credentials, documented in the README (spec §3.4.4).
+Only their bcrypt hashes are stored.
 
 At least one SKU appears for both Alice and Bob, to show that SKUs are unique
 per user only. Items span several categories and locations, with quantities
@@ -827,12 +831,30 @@ before failing, in addition to `depends_on: service_healthy`.
 
 Sections: quick start (`cp .env.example .env`, `docker compose up --build`,
 seed), credentials, endpoints with `curl` examples, how reports work (states,
-retries, lease, cleanup), configuration table (§4), tests, decisions summary
-(link to `docs/decisions.md`), currency (US dollars), known limits (§14),
-production notes.
+retries, lease, cleanup), configuration table (§4), tests, design notes,
+assumptions (currency: US dollars), known limits (§14), production notes,
+links to the project documents.
 
 The first step of the quick start is `cp .env.example .env`. Without `.env`
 the system refuses to start, as spec §4.3.2 requires.
+
+**Design notes** (spec §3.9 review topics). Each topic gets a few lines in
+the README and a link to its source; the details stay in the plan and the
+ADRs, not repeated in the README:
+
+| Review topic | README section | Source to link |
+|---|---|---|
+| Sign-in and password storage | Design notes | §7.1, §7.2, D-008, D-014 |
+| Isolation of each user's data | Design notes | §7.4, D-007 |
+| Data storage and lookup | Design notes (collections + indexes table) | §5, D-016, D-017, D-022 |
+| Project organization | Design notes | §2.2, §3, D-013 |
+| Report production outside the request | How reports work | §8, D-001, D-002 |
+| Concurrency and failures | How reports work | §8.1–§8.4, D-003, D-004 |
+| Temporary file cleanup | How reports work | §8.7, D-023 |
+| Retries on email failure | How reports work | §8.4, D-003, D-011 |
+| Several instances in production | Design notes, Production notes | D-004, D-009, §14 |
+| Millions of items | Design notes | §5.2, §8.5, D-017, D-021 |
+| Secure deployment | Design notes | §10, D-006 |
 
 ## 11. Tooling
 
@@ -898,7 +920,7 @@ they need no `.env` (§12.1).
 
 | File | Covers |
 |---|---|
-| `auth.login.test.ts` | §7.1: success; email case/spaces; wrong password; unknown email returns the same body; missing/wrong-type/invalid email → 400; no hash in response |
+| `auth.login.test.ts` | §7.1: success; email case/spaces; wrong password; unknown email returns the same body; missing field/empty password/wrong type/invalid email → 400; no hash in response |
 | `auth.middleware.test.ts` | §7.2: no header; non-bearer; bad signature; `alg: none`; expired token; deleted user — same 401 body on every protected route; no token + invalid JSON body → 401 |
 | `users.me.test.ts` | §7.3: exactly four fields; another user's id in query/body/header is ignored |
 | `inventory.test.ts` | §7.5: A sees only A's items with exact fields; B's user id or item id in query/body/header → same response; `/inventory/<B item id>` → 404; empty user → `[]` |
