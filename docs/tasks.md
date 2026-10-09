@@ -568,6 +568,8 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
     `REPORT_MAX_ATTEMPTS`;
   - lease lost → no write, no email;
   - heartbeat renews the lease while the job runs (fake timers);
+  - `renewLease` throws once → error logged with `jobId`, lease not marked
+    lost, no unhandled rejection, job finishes `done`;
   - `runJob` never throws; failures are logged with `jobId`.
 - **Commit:** `feat(T29): run a job attempt with heartbeat`
 
