@@ -9,6 +9,9 @@ model, fields, indexes, queries, API contracts, configuration values, files)
 lives in `docs/plan.md`. Required behavior lives in `docs/spec.md`, which wins
 over any ADR.
 
+References: `spec §x` is a section of `docs/spec.md`; `plan.md` is
+`docs/plan.md`; `D-0xx` is an ADR in this document.
+
 **Status values**
 - **Accepted:** decided and confirmed.
 - **Open:** not decided yet (see the Backlog at the end).
