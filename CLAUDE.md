@@ -23,12 +23,26 @@ internal architecture changes, it belongs in `plan.md`, not in `spec.md`.
 
 Editing rules:
 - Edit a document **only in its phase**, and only when I ask for that phase.
+  Exception: relevant findings (below).
 - While writing the spec, do not read or apply `decisions.md`.
 - While writing the plan, if you find a missing or unclear requirement,
   **stop and propose a change to `spec.md`**. Do not add requirements to
   the plan.
-- While implementing, **do not edit `spec.md`, `plan.md` or
-  `decisions.md`**. If code cannot follow them, stop and tell me.
+- While implementing, **never change `spec.md`, `plan.md` or `decisions.md`
+  to make them match the code**. If code cannot follow them, stop and tell
+  me.
+- **Relevant findings.** If, in any phase, you find something about the
+  system that a future agent would need and the documents do not say (for
+  example: "a heartbeat error must not mark the lease as lost"), write it
+  down right away, in the document that owns that kind of information:
+  - how the system works → `plan.md`; a scenario to test → `tasks.md`;
+  - a new technical decision → `decisions.md` (ADR), then `plan.md`;
+  - how to run or use the system → `README.md`.
+  If it touches `spec.md` (what the system must do, or a new known limit)
+  or reverses an existing decision, propose the change and wait for my
+  approval instead.
+  Commit each document separately (`docs(<file>)`) and list the findings
+  in your summary. Never leave a finding only in the conversation.
 - New technical decisions go to `decisions.md` (ADR format) and are then
   reflected in `plan.md`.
 - Once approved, `spec.md` and `plan.md` are the source of truth. If code,
