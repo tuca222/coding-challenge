@@ -57,6 +57,35 @@ Editing rules:
 - If a task requires a new architectural decision, propose a new entry for
   `docs/decisions.md` before implementing it.
 
+## Implementing a task (`docs/tasks.md`)
+
+For every task `Txx`, in this order:
+
+1. **Implement** the task, following its spec and plan sections.
+2. **Write the tests** listed in the task's **Tests** field (unit tests when
+   the task has them; the verification commands otherwise).
+3. **Review** the code and the tests: does the code follow spec, plan and the
+   rules of this file, and do the tests cover every scenario of the task?
+4. **Fix** any evident problem found in step 3. If the fix would change
+   spec, plan or decisions, stop and ask instead.
+5. **Commit**: at least one `feat(Txx)` commit for the implementation, and
+   one `test(Txx)` commit for the tests when the task has unit tests.
+   Run `npm run typecheck`, `lint` and `test` before each commit.
+
+Then summarize what changed, why, and how to verify it (see above).
+
+## Commit messages
+
+Conventional commits, in English, short imperative message:
+
+| Change | Format | Example |
+|---|---|---|
+| Project document (`docs/*`, `CLAUDE.md`, `README.md`) | `docs(<file>): ...` | `docs(plan): add seed passwords` |
+| Task implementation (code, config, Docker) | `feat(Txx): ...` | `feat(T03): load and validate env vars` |
+| Tests of a task | `test(Txx): ...` | `test(T03): cover missing and invalid config` |
+
+One commit per document when several documents change.
+
 ## Stack
 
 - Node.js 24 LTS (`node:24-slim`) + TypeScript (`strict: true`), ES modules
