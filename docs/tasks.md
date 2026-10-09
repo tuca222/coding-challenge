@@ -1,14 +1,18 @@
 # Tasks
 
 > Execution order for `docs/plan.md`. Each task is small, has its own tests
-> and becomes **one commit**. Tasks only reference the spec (`spec §x`) and the
+> and becomes a few small commits (§1 rule 1). Tasks only reference the spec (`spec §x`) and the
 > plan (`plan §x`); they add no requirement and no design. If a task cannot be
 > done as the plan says, stop and ask (CLAUDE.md).
 
 ## 1. Rules
 
-1. **One task = one commit.** Conventional commit message, as given in the
-   task. Target size: up to ~200 changed lines, tests included.
+1. **Commits per task** (CLAUDE.md, "Implementing a task" and "Commit
+   messages"): at least one `feat(Txx)` commit for the implementation and one
+   `test(Txx)` commit for the unit tests, when the task has them. The
+   **Commit** field gives the `feat` message; test-only tasks (T14, T21) use
+   `test(Txx)`, and T35 uses `docs(readme)`. Target size: up to ~200 changed
+   lines per task, tests included.
 2. **Every task has at least one test**, and one test per relevant scenario
    (success, each error case, edge cases). The **Tests** field lists the
    scenarios; all of them must be implemented.
@@ -32,6 +36,7 @@
 - Each subagent gets: the task text, CLAUDE.md, and the referenced sections of
   `spec.md` and `plan.md`. It implements the task, runs the checks of rule 3,
   commits, and returns a short summary (what changed, how to verify).
+  It follows the five steps of CLAUDE.md "Implementing a task".
 - The orchestrator merges the branches of a wave **one at a time** into
   `main`, running `npm run typecheck && npm run lint && npm run test` after
   each merge. The next wave starts only when the whole wave is merged and
@@ -110,7 +115,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
 - **Tests:**
   - smoke test: the URI provided by `globalSetup` is a `mongodb://` URI.
 - **Done when:** `npm run typecheck` and `npm run test` pass.
-- **Commit:** `chore: scaffold TypeScript project and test runner`
+- **Commit:** `feat(T01): scaffold TypeScript project and test runner`
 
 #### T02 — ESLint
 
@@ -125,7 +130,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
     `eslint.config.js` and `vitest.config.ts`;
   - a temporary file with `const x: any = 1; export function f() { return x; }`
     makes `npm run lint` fail (file removed before commit).
-- **Commit:** `chore: add ESLint config`
+- **Commit:** `feat(T02): add ESLint config`
 
 #### T03 — Configuration
 
@@ -143,7 +148,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
   - `loadEnv({})` → throws naming `MONGO_URI` and `JWT_SECRET`;
   - a non-numeric number (`PORT=abc`) → throws naming `PORT`;
   - numeric strings are converted to numbers.
-- **Commit:** `feat(config): load and validate env vars`
+- **Commit:** `feat(T03): load and validate env vars`
 
 #### T04 — Logger and money utils
 
@@ -158,7 +163,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
   - `logger.info` writes one JSON line with `level`, `msg` and the fields
     (spy on stdout);
   - `logger.error` writes to stderr.
-- **Commit:** `feat(utils): add JSON logger and money helper`
+- **Commit:** `feat(T04): add JSON logger and money helper`
 
 #### T05 — Typed errors
 
@@ -172,7 +177,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
   - each subclass has the status, code and default message of the table;
   - `ValidationError` keeps a custom message;
   - every subclass is `instanceof AppError` and `Error`.
-- **Commit:** `feat(errors): add AppError and subclasses`
+- **Commit:** `feat(T05): add AppError and subclasses`
 
 ### Phase B — Data
 
@@ -189,7 +194,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
   - `connectDb` with the memory-server URI → connected (`readyState === 1`);
   - `disconnectDb` → disconnected (`readyState === 0`), then reconnect;
   - a document inserted in one test is gone in the next (collections cleared).
-- **Commit:** `feat(db): add Mongo connection with retry`
+- **Commit:** `feat(T06): add Mongo connection with retry`
 
 #### T07 — User model
 
@@ -204,7 +209,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
     `select("+passwordHash")`;
   - missing `name`/`email`/`passwordHash` → validation error;
   - `createdAt`/`updatedAt` are set.
-- **Commit:** `feat(models): add User model`
+- **Commit:** `feat(T07): add User model`
 
 #### T08 — InventoryItem model
 
@@ -218,7 +223,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
   - empty `name`/`sku`/`category`/`location` → validation error;
   - negative or non-integer `quantity` → validation error;
   - negative or non-integer `unitPriceCents` → validation error.
-- **Commit:** `feat(models): add InventoryItem model`
+- **Commit:** `feat(T08): add InventoryItem model`
 
 #### T09 — ReportJob model
 
@@ -232,7 +237,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
   - status outside `pending|processing|done|failed` → validation error;
   - indexes `{ status, createdAt }` and `{ status, lockedUntil }` exist
     after `ReportJob.init()`.
-- **Commit:** `feat(models): add ReportJob model`
+- **Commit:** `feat(T09): add ReportJob model`
 
 #### T10 — ensureIndexes
 
@@ -244,7 +249,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
 - **Tests:**
   - after `ensureIndexes()`, `users`, `inventory` and `reportJobs` list the
     indexes of `plan §5`.
-- **Commit:** `feat(db): create indexes on startup`
+- **Commit:** `feat(T10): create indexes on startup`
 
 #### T11 — DTO mappers
 
@@ -260,7 +265,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
   - `toReportJobDto` → `jobId`, `status`, `createdAt`, `updatedAt` from
     `statusChangedAt`; `reason` only when not null; never `attempts`,
     `lockToken`, `lockedUntil`, `userId`.
-- **Commit:** `feat(dto): add response mappers`
+- **Commit:** `feat(T11): add response mappers`
 
 ### Phase C — HTTP API
 
@@ -281,7 +286,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
   - unknown path on `createApp()` → `404 NOT_FOUND`;
   - every error body has exactly `{ error: { code, message } }`;
   - no `x-powered-by` header.
-- **Commit:** `feat(api): add app with error and not-found handlers`
+- **Commit:** `feat(T12): add app with error and not-found handlers`
 
 #### T13 — Token and dummy hash
 
@@ -298,7 +303,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
   - `alg: none` token → `UnauthorizedError`;
   - `sub` missing or not 24-hex → `UnauthorizedError`;
   - `getDummyHash()` called twice → same promise; result is a bcrypt hash.
-- **Commit:** `feat(auth): sign and verify JWT`
+- **Commit:** `feat(T13): sign and verify JWT`
 
 #### T14 — Test helpers
 
@@ -311,7 +316,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
   - `createUser` stores a bcrypt hash, not the plain password;
   - `createItems` creates `n` items owned by the user;
   - `tokenFor` returns a token `verifyToken` accepts.
-- **Commit:** `test: add test helpers`
+- **Commit:** `test(T14): add test helpers`
 
 #### T15 — POST /auth/login
 
@@ -333,7 +338,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
   - `GET /auth/login` → `404`;
   - no response contains the password or the hash.
 - **Note:** route chain `jsonBody` → handler (`plan §6.1`).
-- **Commit:** `feat(auth): add login endpoint`
+- **Commit:** `feat(T15): add login endpoint`
 
 #### T16 — authenticate middleware
 
@@ -348,7 +353,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
   - no header / `Basic …` / `Bearer` without token → `401 UNAUTHORIZED`;
   - invalid token / expired token / deleted user → same `401` body;
   - `getAuth` without `req.auth` → `UnauthorizedError`.
-- **Commit:** `feat(auth): add authenticate middleware`
+- **Commit:** `feat(T16): add authenticate middleware`
 
 #### T17 — GET /users/me
 
@@ -365,7 +370,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
     (`authenticate` → `jsonBody` → handler, `plan §6.1`);
   - `errors.test.ts`: `getProfile` mocked to throw → `500 INTERNAL_ERROR`,
     generic message, no stack, error logged.
-- **Commit:** `feat(users): add GET /users/me`
+- **Commit:** `feat(T17): add GET /users/me`
 
 #### T18 — GET /inventory
 
@@ -382,7 +387,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
   - `/inventory/<B item id>` → `404`;
   - user without items → `200 []`.
 - **Note:** route chain `authenticate` → `jsonBody` → handler.
-- **Commit:** `feat(inventory): add GET /inventory`
+- **Commit:** `feat(T18): add GET /inventory`
 
 #### T19 — POST /reports/inventory
 
@@ -400,7 +405,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
   - user without items → still `202`;
   - user with many items (e.g. 2 000) → `202` in under 200 ms.
 - **Note:** route chain `authenticate` → `jsonBody` → handler.
-- **Commit:** `feat(reports): add POST /reports/inventory`
+- **Commit:** `feat(T19): add POST /reports/inventory`
 
 #### T20 — GET /reports/:jobId
 
@@ -417,7 +422,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
   - unknown valid id → `404`;
   - malformed id → `404`;
   - the three `404` bodies are identical.
-- **Commit:** `feat(reports): add GET /reports/:jobId`
+- **Commit:** `feat(T20): add GET /reports/:jobId`
 
 #### T21 — Auth on every protected route
 
@@ -431,7 +436,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
   - bad signature, `alg: none`, expired token, deleted user → `401` with the
     same body;
   - no token + body that is not valid JSON → `401`, not `400`.
-- **Commit:** `test(auth): cover every protected route`
+- **Commit:** `test(T21): cover every protected route`
 
 #### T22 — API entrypoint
 
@@ -446,7 +451,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
   - `node dist/src/server.js` without env → exits `1` naming the missing
     variables;
   - full runtime check is done in T34.
-- **Commit:** `feat(api): add server entrypoint`
+- **Commit:** `feat(T22): add server entrypoint`
 
 ### Phase D — Worker
 
@@ -460,7 +465,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
   - existing attachment → logs one `email sent` line with `jobId`, `to`,
     `subject`, attachment name and size;
   - missing attachment → rejects and logs nothing.
-- **Commit:** `feat(email): add EmailSender and console mock`
+- **Commit:** `feat(T23): add EmailSender and console mock`
 
 #### T24 — Worker errors and temp files
 
@@ -477,7 +482,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
   - `removeFileQuietly` on an existing file → removed;
   - on a missing file → does not throw, logs a warning;
   - `PermanentJobError` keeps its public reason.
-- **Commit:** `feat(worker): add job errors and temp file helpers`
+- **Commit:** `feat(T24): add job errors and temp file helpers`
 
 #### T25 — Spreadsheet writer
 
@@ -491,7 +496,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
     `Quantity × Unit Price` (e.g. 3 × 19.99 = 59.97);
   - no `_id` or `userId` in any cell;
   - returns the row count; user without items → `0`.
-- **Commit:** `feat(worker): stream inventory to xlsx`
+- **Commit:** `feat(T25): stream inventory to xlsx`
 
 #### T26 — Job queue: claim and exhausted jobs
 
@@ -514,7 +519,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
     becomes `failed` with the exhausted reason;
   - `failExhaustedJobs` leaves untouched: `pending` with attempts left,
     `processing` with a valid lease, `done`, `failed`.
-- **Commit:** `feat(worker): add atomic job claim`
+- **Commit:** `feat(T26): add atomic job claim`
 
 #### T27 — Job queue: lease renewal and finish
 
@@ -528,7 +533,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
     `lockToken` and `lockedUntil` null, `statusChangedAt` updated;
   - stale `lockToken` → no change;
   - a `done` or `failed` job never changes (finish and renew do not match).
-- **Commit:** `feat(worker): add lease renewal and job finish`
+- **Commit:** `feat(T27): add lease renewal and job finish`
 
 #### T28 — Process one report
 
@@ -547,7 +552,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
     logged;
   - missing user → `PermanentJobError`;
   - `isLeaseLost()` true → `LeaseLostError`, no email.
-- **Commit:** `feat(worker): process a report job`
+- **Commit:** `feat(T28): process a report job`
 
 #### T29 — Run one attempt
 
@@ -564,7 +569,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
   - lease lost → no write, no email;
   - heartbeat renews the lease while the job runs (fake timers);
   - `runJob` never throws; failures are logged with `jobId`.
-- **Commit:** `feat(worker): run a job attempt with heartbeat`
+- **Commit:** `feat(T29): run a job attempt with heartbeat`
 
 #### T30 — Worker entrypoint
 
@@ -577,7 +582,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
   - `npm run build` produces `dist/src/workers/reportWorker.js`;
   - without env → exits `1` naming the missing variables;
   - full runtime check is done in T34/T36.
-- **Commit:** `feat(worker): add worker loop entrypoint`
+- **Commit:** `feat(T30): add worker loop entrypoint`
 
 ### Phase E — Seed
 
@@ -594,7 +599,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
   - second run → same user ids, same item counts, no duplicates;
   - existing report jobs are unchanged after a second run;
   - a user not in the seed is not touched.
-- **Commit:** `feat(seed): add seed data and idempotent loader`
+- **Commit:** `feat(T31): add seed data and idempotent loader`
 
 #### T32 — Seed entrypoint
 
@@ -605,7 +610,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
   - `npm run build` produces `dist/scripts/seed.js`;
   - without env → exits `1`;
   - run inside Compose in T34.
-- **Commit:** `feat(seed): add seed script`
+- **Commit:** `feat(T32): add seed script`
 
 ### Phase F — Delivery
 
@@ -621,7 +626,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
   - the image contains `dist/` and no `src/`, `tests/`, `.env`;
   - `docker run --rm inventory-app:local` without env → exits `1` naming the
     missing variables.
-- **Commit:** `build: add Dockerfile`
+- **Commit:** `feat(T33): add Dockerfile`
 
 #### T34 — Compose
 
@@ -635,7 +640,7 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
   - `curl` login with a seed user → `200 { token }`;
   - `POST /reports/inventory` → `202`; `docker compose logs worker` shows
     `email sent`; `GET /reports/:jobId` → `done`.
-- **Commit:** `build: add Docker Compose setup`
+- **Commit:** `feat(T34): add Docker Compose setup`
 
 #### T35 — README: verify and finalize
 
