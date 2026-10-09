@@ -211,3 +211,15 @@ mongodb-memory-server:
 - `docker compose up --build` works from a clean clone, following the README.
 - README updated if endpoints, commands or env vars changed.
 - No secrets, no `node_modules`, no generated reports committed.
+
+## README
+
+Audience: reviewers. It shows how to run and use the system and gives a short
+overview of the design. Required content: `docs/spec.md` §3.9.
+
+- Sections: quick start, test credentials, endpoints (curl + example
+  responses), how reports work, configuration, tests, design notes,
+  assumptions, known limits, production notes, links to `docs/`.
+- Summarize and link to `docs/plan.md` / `docs/decisions.md`; do not copy
+  their details.
+- Keep it in sync with the code (see Definition of done).
