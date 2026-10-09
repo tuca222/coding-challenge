@@ -637,19 +637,24 @@ T01 → T03 → T06 → T07 → T10 → T26 → T27 → T29 → T30 → T33 → 
     `email sent`; `GET /reports/:jobId` → `done`.
 - **Commit:** `build: add Docker Compose setup`
 
-#### T35 — README
+#### T35 — README: verify and finalize
 
 - **Spec:** §3.9, §7.9, §8 · **Plan:** §10.5, §14
 - **Depends on:** T34
 - **Files:** `README.md`
+- **Work:** the README draft already exists. Check it against the running
+  system and fix any difference: commands, request and response examples,
+  error codes, configuration table. Remove the "Status: in development"
+  note.
 - **Tests (verification):**
   - following only the README from a clean clone: start, seed, sign in with
     each documented credential, call every endpoint with the `curl`
     examples, see a report emailed;
-  - README has: credentials, endpoints, how reports work (states, retries,
-    lease, cleanup), configuration table, tests, decisions summary,
-    currency, known limits, production notes.
-- **Commit:** `docs(readme): add README`
+  - every example response matches a real response (field names and shape);
+  - every review topic of spec §3.9 is explained or linked (plan §10.5
+    table);
+  - every link to `docs/` works.
+- **Commit:** `docs(readme): finalize README`
 
 #### T36 — Final verification
 
