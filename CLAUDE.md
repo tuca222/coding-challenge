@@ -165,7 +165,7 @@ docs/
 
 File-by-file structure: `docs/plan.md` §3.
 
-## Commands (target; keep this section updated as scripts are created)
+## Commands (keep this section updated when scripts or commands change)
 
 ```sh
 cp .env.example .env                            # first time only
@@ -173,7 +173,7 @@ docker compose up --build                       # run everything
 docker compose exec api npm run seed            # seed users + inventory
 docker compose up --scale worker=3              # scale the worker
 docker compose down -v                          # stop and delete volumes
-docker compose -f compose.yaml -f compose.dev.yaml up  # also publish Mongo port (dev only)
+docker compose -f compose.yaml -f compose.dev.yaml up -d  # also publish Mongo port (dev only)
 npm run build | start | start:worker | seed
 npm run typecheck | lint | test
 ```
