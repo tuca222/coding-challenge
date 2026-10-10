@@ -1,0 +1,5 @@
+# Dev only: publishes Mongo to the host for local tools.
+services:
+  mongo:
+    ports:
+      - "27017:27017"
