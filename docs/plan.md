@@ -545,7 +545,8 @@ complement of the claim filter for these two states.
 **`finishJob(jobId, lockToken, outcome)`** — `updateOne` filtered by
 `{ _id, status: "processing", lockToken }`:
 - `done`: `status: "done"`, optional `reason`
-- `retry`: `status: "pending"`
+- `retry`: `status: "pending"`; `reason` is left unchanged (the claim already
+  reset it to `null`)
 - `failed`: `status: "failed"`, `reason`
 
 Every outcome also sets `lockToken: null`, `lockedUntil: null`,
