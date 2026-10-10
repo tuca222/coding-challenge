@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { getAuth } from "../middleware/authenticate.js";
-import { createJob } from "../services/reportService.js";
+import { createJob, getJob } from "../services/reportService.js";
 
 export async function createInventoryReport(req: Request, res: Response): Promise<void> {
   const { userId } = getAuth(req);
@@ -11,4 +11,10 @@ export async function createInventoryReport(req: Request, res: Response): Promis
     jobId,
     status,
   });
+}
+
+export async function getReport(req: Request, res: Response): Promise<void> {
+  const { userId } = getAuth(req);
+  const jobId = String(req.params["jobId"]);
+  res.status(200).json(await getJob(userId, jobId));
 }
