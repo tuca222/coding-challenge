@@ -30,7 +30,7 @@ export async function processReportJob(
   deps: ProcessDeps,
 ): Promise<{ itemCount: number }> {
   const user = await User.findById(job.userId).lean();
-  if (!user) throw new PermanentJobError("The user no longer exists.");
+  if (!user) throw new PermanentJobError("The user who requested this report no longer exists.");
 
   const producedAt = new Date();
   const jobId = String(job._id);
