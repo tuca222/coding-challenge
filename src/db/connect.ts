@@ -1,4 +1,7 @@
 import mongoose from "mongoose";
+import { User } from "../models/User.js";
+import { InventoryItem } from "../models/InventoryItem.js";
+import { ReportJob } from "../models/ReportJob.js";
 import { logger } from "../utils/logger.js";
 
 const ATTEMPTS = 5;
@@ -18,6 +21,10 @@ export async function connectDb(uri: string): Promise<void> {
       await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
     }
   }
+}
+
+export async function ensureIndexes(): Promise<void> {
+  await Promise.all([User.init(), InventoryItem.init(), ReportJob.init()]);
 }
 
 export async function disconnectDb(): Promise<void> {

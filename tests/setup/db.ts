@@ -1,9 +1,10 @@
 import mongoose from "mongoose";
 import { afterAll, beforeAll, beforeEach, inject } from "vitest";
-import { connectDb, disconnectDb } from "../../src/db/connect.js";
+import { connectDb, disconnectDb, ensureIndexes } from "../../src/db/connect.js";
 
 beforeAll(async () => {
   await connectDb(inject("mongoUri"));
+  await ensureIndexes();
 });
 
 beforeEach(async () => {

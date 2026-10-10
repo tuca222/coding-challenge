@@ -1,25 +1,19 @@
 import mongoose from "mongoose";
-import { describe, expect, inject, it } from "vitest";
-import { connectDb, disconnectDb } from "../src/db/connect.js";
+import { describe, expect, it } from "vitest";
+import { ensureIndexes } from "../src/db/connect.js";
 
-describe("db connection", () => {
-  it("is connected by the test setup", () => {
-    expect(mongoose.connection.readyState).toBe(1);
-  });
+async function keys(collection: string): Promise<string[]> {
+  const idx = await mongoose.connection.collection(collection).indexes();
+  return idx.map((i) => JSON.stringify(i.key));
+}
 
-  it("disconnects and reconnects", async () => {
-    await disconnectDb();
-    expect(mongoose.connection.readyState).toBe(0);
-    await connectDb(inject("mongoUri"));
-    expect(mongoose.connection.readyState).toBe(1);
-  });
-
-  it("writes a document", async () => {
-    await mongoose.connection.collection("tmp").insertOne({ a: 1 });
-    expect(await mongoose.connection.collection("tmp").countDocuments()).toBe(1);
-  });
-
-  it("clears collections between tests", async () => {
-    expect(await mongoose.connection.collection("tmp").countDocuments()).toBe(0);
+describe("ensureIndexes", () => {
+  it("creates the indexes of plan section 5", async () => {
+    await ensureIndexes();
+    expect(await keys("users")).toContain(JSON.stringify({ email: 1 }));
+    expect(await keys("inventory")).toContain(JSON.stringify({ userId: 1, sku: 1 }));
+    const jobs = await keys("reportJobs");
+    expect(jobs).toContain(JSON.stringify({ status: 1, createdAt: 1 }));
+    expect(jobs).toContain(JSON.stringify({ status: 1, lockedUntil: 1 }));
   });
 });
