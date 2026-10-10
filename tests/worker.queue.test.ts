@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ReportJob } from "../src/models/ReportJob.js";
-import { EXHAUSTED_REASON, claimNextJob, failExhaustedJobs } from "../src/workers/jobQueue.js";
+import { EXHAUSTED_REASON, claimNextJob, failExhaustedJobs, finishJob, renewLease } from "../src/workers/jobQueue.js";
 
 const MAX = 3;
 const LEASE = 60_000;
@@ -107,5 +107,66 @@ describe("failExhaustedJobs", () => {
     const jobs = await ReportJob.find({ _id: { $in: ids } }).sort({ createdAt: 1 }).lean();
     expect(jobs.map((j) => j.status)).toEqual(["pending", "processing", "done", "failed"]);
     expect(jobs.every((j) => j.reason === null)).toBe(true);
+  });
+});
+
+describe("renewLease and finishJob", () => {
+  async function claimed(): Promise<{
+    id: mongoose.Types.ObjectId;
+    token: string;
+    lockedUntil: Date | null;
+  }> {
+    await seed();
+    const job = await claimNextJob(MAX, LEASE);
+    if (!job || !job.lockToken) throw new Error("no job");
+    return { id: job._id, token: job.lockToken, lockedUntil: job.lockedUntil ?? null };
+  }
+
+  it("renews with the right token", async () => {
+    const { id, token, lockedUntil } = await claimed();
+    expect(await renewLease(id, token, LEASE * 2)).toBe(true);
+    const doc = await ReportJob.findById(id).lean();
+    expect(doc?.lockedUntil?.getTime()).toBeGreaterThan(lockedUntil!.getTime());
+  });
+
+  it("does not renew with a stale token", async () => {
+    const { id, lockedUntil } = await claimed();
+    expect(await renewLease(id, "stale", LEASE * 2)).toBe(false);
+    const doc = await ReportJob.findById(id).lean();
+    expect(doc?.lockedUntil).toEqual(lockedUntil);
+  });
+
+  it.each([
+    [{ kind: "done", reason: "ok" } as const, "done", "ok"],
+    [{ kind: "retry" } as const, "pending", null],
+    [{ kind: "failed", reason: "bad" } as const, "failed", "bad"],
+  ])("finishes with %j", async (outcome, status, reason) => {
+    const { id, token } = await claimed();
+    const before = Date.now();
+    expect(await finishJob(id, token, outcome)).toBe(true);
+    const doc = await ReportJob.findById(id).lean();
+    expect(doc?.status).toBe(status);
+    expect(doc?.reason).toBe(reason);
+    expect(doc?.lockToken).toBeNull();
+    expect(doc?.lockedUntil).toBeNull();
+    expect(doc?.statusChangedAt.getTime()).toBeGreaterThanOrEqual(before);
+  });
+
+  it("ignores a stale token on finish", async () => {
+    const { id } = await claimed();
+    expect(await finishJob(id, "stale", { kind: "retry" })).toBe(false);
+    const doc = await ReportJob.findById(id).lean();
+    expect(doc?.status).toBe("processing");
+  });
+
+  it("never changes done or failed jobs", async () => {
+    for (const status of ["done", "failed"] as const) {
+      const id = await seed({ status });
+      await ReportJob.updateOne({ _id: id }, { lockToken: "t" });
+      expect(await renewLease(id, "t", LEASE)).toBe(false);
+      expect(await finishJob(id, "t", { kind: "retry" })).toBe(false);
+      const doc = await ReportJob.findById(id).lean();
+      expect(doc?.status).toBe(status);
+    }
   });
 });
