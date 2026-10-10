@@ -1,9 +1,5 @@
 # Inventory Reports API
 
-> **Status: in development.** This README describes the target behavior from
-> `docs/spec.md` and `docs/plan.md`. Commands and examples are checked against
-> the running system before delivery (task T35).
-
 A small REST API built with Node.js, Express, MongoDB and Docker Compose, in
 TypeScript. Users sign in, read their own profile and inventory, and request
 an inventory report (`.xlsx`). A separate worker produces the report in the
@@ -131,12 +127,12 @@ curl -s http://localhost:3000/inventory -H "Authorization: Bearer $TOKEN"
 [
   {
     "id": "665f1c2e9b1e8a0012345679",
-    "name": "Wireless Mouse",
-    "sku": "MOU-001",
-    "category": "Electronics",
-    "location": "Warehouse A",
-    "quantity": 3,
-    "unitPrice": 19.99
+    "name": "Desk Lamp",
+    "sku": "DL-6006",
+    "category": "Furniture",
+    "location": "Warehouse C",
+    "quantity": 60,
+    "unitPrice": 24.75
   }
 ]
 ```
