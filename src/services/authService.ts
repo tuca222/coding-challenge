@@ -2,7 +2,8 @@ import { randomBytes } from "node:crypto";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
-import { UnauthorizedError } from "../errors/AppError.js";
+import { InvalidCredentialsError, UnauthorizedError } from "../errors/AppError.js";
+import { User } from "../models/User.js";
 
 export function signToken(userId: string): string {
   return jwt.sign({}, env.JWT_SECRET, {
@@ -24,6 +25,15 @@ export function verifyToken(token: string): string {
     if (typeof sub === "string" && /^[0-9a-f]{24}$/i.test(sub)) return sub;
   }
   throw new UnauthorizedError();
+}
+
+export async function login(email: string, password: string): Promise<string> {
+  const user = await User.findOne({ email }).select("+passwordHash").lean();
+  // Always compare, so unknown emails take the same time (spec §3.1.2).
+  const hash = user ? user.passwordHash : await getDummyHash();
+  const ok = await bcrypt.compare(password, hash);
+  if (!user || !ok) throw new InvalidCredentialsError();
+  return signToken(String(user._id));
 }
 
 let dummyHash: Promise<string> | undefined;

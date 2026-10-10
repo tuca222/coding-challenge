@@ -1,4 +1,6 @@
 import bcrypt from "bcrypt";
+import type { Express } from "express";
+import request from "supertest";
 import type { Types } from "mongoose";
 import { env } from "../src/config/env.js";
 import { InventoryItem } from "../src/models/InventoryItem.js";
@@ -41,6 +43,15 @@ export async function createItems(
     unitPriceCents: 1000 + i,
   }));
   await InventoryItem.insertMany(docs);
+}
+
+export async function loginAs(
+  app: Express,
+  email: string,
+  password: string,
+): Promise<string> {
+  const res = await request(app).post("/auth/login").send({ email, password });
+  return (res.body as { token: string }).token;
 }
 
 export function tokenFor(userId: string | Types.ObjectId): string {
