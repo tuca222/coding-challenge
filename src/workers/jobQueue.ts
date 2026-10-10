@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { HydratedDocument } from "mongoose";
+import type { HydratedDocument, Types } from "mongoose";
 import { ReportJob, type ReportJobAttrs } from "../models/ReportJob.js";
 
 export const EXHAUSTED_REASON = "The report could not be produced after several attempts.";
@@ -26,6 +26,48 @@ export async function claimNextJob(maxAttempts: number, leaseMs: number): Promis
     },
     { sort: { createdAt: 1 }, returnDocument: "after" },
   );
+}
+
+export type JobOutcome =
+  | { kind: "done"; reason?: string }
+  | { kind: "retry" }
+  | { kind: "failed"; reason: string };
+
+/** Extends the lease; false means the lease was lost. */
+export async function renewLease(
+  jobId: Types.ObjectId,
+  lockToken: string,
+  leaseMs: number,
+): Promise<boolean> {
+  const result = await ReportJob.updateOne(
+    { _id: jobId, status: "processing", lockToken },
+    { $set: { lockedUntil: new Date(Date.now() + leaseMs) } },
+  );
+  return result.matchedCount === 1;
+}
+
+/** Finishes a claimed job; false means the lease was lost and nothing changed. */
+export async function finishJob(
+  jobId: Types.ObjectId,
+  lockToken: string,
+  outcome: JobOutcome,
+): Promise<boolean> {
+  const set: Record<string, unknown> = {
+    lockToken: null,
+    lockedUntil: null,
+    statusChangedAt: new Date(),
+  };
+  if (outcome.kind === "retry") {
+    set.status = "pending";
+  } else {
+    set.status = outcome.kind;
+    if (outcome.reason !== undefined) set.reason = outcome.reason;
+  }
+  const result = await ReportJob.updateOne(
+    { _id: jobId, status: "processing", lockToken },
+    { $set: set },
+  );
+  return result.matchedCount === 1;
 }
 
 /** Fails jobs that have no attempts left and are not running; returns how many. */
