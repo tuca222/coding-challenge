@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm ci)",
+      "Bash(npm run *)",
+      "Bash(git status *)", "Bash(git diff *)", "Bash(git log *)",
+      "Bash(git add *)", "Bash(git commit *)", "Bash(git branch *)",
+      "Bash(git merge *)", "Bash(git worktree *)"
+    ],
+    "deny": ["Bash(git push *)", "Bash(git reset --hard *)", "Bash(rm -rf *)"]
+  },
+  "worktree": { "baseRef": "head" }
+}
