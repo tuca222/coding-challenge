@@ -513,7 +513,7 @@ update: {
   },
   $inc: { attempts: 1 },
 }
-options: { sort: { createdAt: 1 }, new: true }
+options: { sort: { createdAt: 1 }, returnDocument: "after" }
 ```
 
 Returns the claimed job (with its new `lockToken` and `attempts`) or `null`.
@@ -718,7 +718,7 @@ Never logged: passwords, password hashes, tokens, request bodies.
 - `src/seed/runSeed.ts` exports `runSeed()`:
   1. `ensureIndexes()`
   2. For each user: `passwordHash = await bcrypt.hash(password, env.BCRYPT_COST)`;
-     `User.findOneAndUpdate({ email }, { $set: { name, passwordHash } }, { upsert: true, new: true })`
+     `User.findOneAndUpdate({ email }, { $set: { name, passwordHash } }, { upsert: true, returnDocument: "after" })`
      — keeps `_id` for existing users.
   3. For each user: `InventoryItem.deleteMany({ userId })`, then
      `InventoryItem.insertMany(items)`.
